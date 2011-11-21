@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<project name="soaDeployAll" default="deployAll">
+    <echo>basedir ${basedir}</echo>
+
+    <property environment="env"/> 
+    <echo>current folder ${env.CURRENT_FOLDER}</echo>
+
+
+
+    <property file="${env.CURRENT_FOLDER}/build.properties"/>  
+
+    <taskdef resource="net/sf/antcontrib/antcontrib.properties"/>
+
+    <import file="${basedir}/ant-sca-deploy.xml"/>
+    <import file="${basedir}/ant-sca-package.xml"/>
+    <import file="${basedir}/ant-sca-test.xml"/>
+
+    <target name="deployAll"> 
+      <foreach list="${applications}" param="application" target="deployApplication" inheritall="true" inheritrefs="false"/>
+    </target>
+
+    <target name="deployApplication">
+        <echo>deploy application ${application}</echo>
+        <property file="${env.CURRENT_FOLDER}/${applications.home}/${application}/build.properties"/>   
+        <foreach list="${projects}" param="project" target="deployProject" inheritall="true" inheritrefs="false"/>
+    </target>
+
+    <target name="deployProject">
+        <echo>deploy project ${project} for  environment ${deployment.plan.environment}</echo>
+
+        <property name="proj.compositeName" value="${project}"/>
+        <property name="proj.compositeDir" value="${env.CURRENT_FOLDER}/${applications.home}/${application}"/>
+        <propertycopy name="proj.revision" from="${project}.revision"/>
+
+        <echo>deploy compositeName ${proj.compositeName}</echo>
+        <echo>deploy compositeDir ${proj.compositeDir}</echo>
+
+        <antcall target="package" inheritall="false">
+             <param name="compositeDir" value="${proj.compositeDir}/${project}"/>
+             <param name="compositeName" value="${proj.compositeName}"/>
+             <param name="revision" value="${proj.revision}"/>
+             <param name="oracle.home" value="${oracle.home}"/>
+             <param name="java.passed.home" value="${java.passed.home}"/>
+             <param name="wl_home" value="${wl_home}"/>
+             <param name="sca.application.home" value="${proj.compositeDir}"/>
+             <param name="scac.application.home" value="${proj.compositeDir}"/>
+             <param name="scac.input" value="${proj.compositeDir}/${proj.compositeName}/composite.xml"/>
+             <param name="scac.output" value="${tmp.output.dir}/${proj.compositeName}.xml"/>
+             <param name="scac.error" value="${tmp.output.dir}/${proj.compositeName}.err"/>
+             <param name="scac.displayLevel" value="3"/>
+        </antcall>  
+
+        <property name="deploy.sarLocation" value="${proj.compositeDir}/${proj.compositeName}/deploy/sca_${proj.compositeName}_rev${proj.revision}.jar"/>
+        <property name="deploy.configplan"  value="${proj.compositeDir}/${proj.compositeName}/${proj.compositeName}_cfgplan_${deployment.plan.environment}.xml"/>
+
+        <propertycopy name="deploy.serverURL"    from="${deployment.plan.environment}.serverURL"/>
+        <propertycopy name="deploy.overwrite"    from="${deployment.plan.environment}.overwrite"/>
+        <propertycopy name="deploy.user"         from="${deployment.plan.environment}.user"/>
+        <propertycopy name="deploy.password"     from="${deployment.plan.environment}.password"/>
+        <propertycopy name="deploy.forceDefault" from="${deployment.plan.environment}.forceDefault"/>
+
+        <echo>deploy on ${deploy.serverURL} with user ${deploy.user}</echo>
+        <echo>deploy sarFile ${deploy.sarLocation}</echo>
+
+        <antcall target="deploy" inheritall="false">
+             <param name="wl_home" value="${wl_home}"/>
+             <param name="oracle.home" value="${oracle.home}"/>
+             <param name="serverURL" value="${deploy.serverURL}"/>
+             <param name="user" value="${deploy.user}"/>
+             <param name="password" value="${deploy.password}"/>
+             <param name="overwrite" value="${deploy.overwrite}"/>
+             <param name="forceDefault" value="${deploy.forceDefault}"/>
+             <param name="sarLocation" value="${deploy.sarLocation}"/>
+             <param name="configplan" value="${deploy.configplan}"/>
+        </antcall>  
+        <antcall target="test" inheritall="false">
+             <param name="scatest.input" value="${project}"/>
+             <param name="scatest.format" value="junit"/>
+             <param name="scatest.result" value="${env.CURRENT_FOLDER}/${junit.output.dir}"/>
+             <param name="jndi.properties.input" value="${deployment.plan.environment}.jndi.properties"/>
+        </antcall>  
+    </target>
+</project>
